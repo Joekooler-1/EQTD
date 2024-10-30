@@ -1,59 +1,91 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import pandas as pd
-import os
-import tempfile
 
-def display_selected_columns():
-    # Define the indices of the columns to load and display (0-based indexing)
-    selected_indices = [0, 2, 4, 5, 6]  # Adjust these indices based on the columns you want to display
+class FeedMergerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Feed File Merger")
+        self.psv_file = None
+        self.feed_files = []
 
-    # Open file dialog to select the PSV file
-    input_file = filedialog.askopenfilename(
-        title="Select a PSV File", 
-        filetypes=[("Pipe-Separated Values", "*.psv"), ("All Files", "*.*")]
-    )
-    
-    if not input_file:
-        return  # User cancelled the file dialog
+        # Create interface components
+        self.create_widgets()
 
-    try:
-        # Load only the header to check the number of columns
-        header = pd.read_csv(input_file, sep='|', nrows=0)
-        num_columns = len(header.columns)
+    def create_widgets(self):
+        # Buttons and labels for file selection
+        self.psv_label = tk.Label(self.root, text="Select .psv file:")
+        self.psv_label.pack()
+        self.psv_button = tk.Button(self.root, text="Choose .psv file", command=self.load_psv_file)
+        self.psv_button.pack()
 
-        # Check if all specified indices are within the range of available columns
-        if any(index >= num_columns or index < 0 for index in selected_indices):
-            messagebox.showerror("Error", "One or more specified column indices do not exist in the input file.")
-            return
+        self.feed_label = tk.Label(self.root, text="Select 3 feed files:")
+        self.feed_label.pack()
+        self.feed_button = tk.Button(self.root, text="Choose feed files", command=self.load_feed_files)
+        self.feed_button.pack()
 
-        # Try to load the file with UTF-8 encoding, using only the selected columns
-        data = pd.read_csv(input_file, sep='|', encoding='utf-8', usecols=selected_indices)
-    except UnicodeDecodeError:
-        # If UTF-8 fails, fallback to ISO-8859-1 encoding
-        data = pd.read_csv(input_file, sep='|', encoding='ISO-8859-1', usecols=selected_indices)
+        # Button to process files
+        self.process_button = tk.Button(self.root, text="Merge Files", command=self.merge_files, state=tk.DISABLED)
+        self.process_button.pack()
 
-    try:
-        # Write to a temporary Excel file to open it for viewing
-        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-            temp_filename = tmp.name
-        data.to_excel(temp_filename, index=False)
+        # Button to save the merged output
+        self.save_button = tk.Button(self.root, text="Save Merged File", command=self.save_file, state=tk.DISABLED)
+        self.save_button.pack()
 
-        # Open the Excel file for viewing
-        os.startfile(temp_filename, "open")
+    def load_psv_file(self):
+        # Open file dialog to select the .psv file
+        self.psv_file = filedialog.askopenfilename(filetypes=[("PSV files", "*.psv")])
+        if self.psv_file:
+            messagebox.showinfo("File Selected", f"Selected .psv file: {self.psv_file}")
+            # Enable process button if all files are loaded
+            self.update_process_button_state()
 
-    except FileNotFoundError:
-        messagebox.showerror("Error", "File not found.")
-    except Exception as e:
-        messagebox.showerror("Error", f"An unexpected error occurred: {e}")
+    def load_feed_files(self):
+        # Open file dialog to select feed files (allowing only 3 files to be selected)
+        self.feed_files = filedialog.askopenfilenames(filetypes=[("CSV files", "*.csv")])
+        if len(self.feed_files) == 3:
+            messagebox.showinfo("Files Selected", f"Selected feed files:\n{', '.join(self.feed_files)}")
+            # Enable process button if all files are loaded
+            self.update_process_button_state()
+        else:
+            messagebox.showwarning("Invalid Selection", "Please select exactly 3 feed files.")
 
-# Setting up the tkinter app
+    def update_process_button_state(self):
+        # Enable merge button if both psv and three feed files are selected
+        if self.psv_file and len(self.feed_files) == 3:
+            self.process_button.config(state=tk.NORMAL)
+
+    def merge_files(self):
+        # Load and process files
+        try:
+            # Load the .psv file
+            psv_data = pd.read_csv(self.psv_file, delimiter='|')
+            psv_data = psv_data.drop_duplicates(subset=['Client_ID'])
+
+            # Load each feed file and merge
+            merged_data_frames = []
+            for feed_file in self.feed_files:
+                feed_data = pd.read_csv(feed_file)
+                merged = pd.merge(feed_data, psv_data, left_on='Column_B', right_on='Column_I', how='inner')
+                merged_data_frames.append(merged)
+
+            # Concatenate merged data
+            self.final_merged_data = pd.concat(merged_data_frames, ignore_index=True)
+
+            messagebox.showinfo("Merge Complete", "Files have been successfully merged.")
+            self.save_button.config(state=tk.NORMAL)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+
+    def save_file(self):
+        # Save the merged file
+        save_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+        if save_path:
+            self.final_merged_data.to_csv(save_path, index=False)
+            messagebox.showinfo("File Saved", f"File saved successfully at {save_path}")
+
+# Run the tkinter app
 root = tk.Tk()
-root.title("PSV Column Viewer")
-
-# Button to load and display specific columns
-load_button = tk.Button(root, text="Load PSV File", command=display_selected_columns)
-load_button.pack(pady=20)
-
-# Run the tkinter main loop
+app = FeedMergerApp(root)
 root.mainloop()
