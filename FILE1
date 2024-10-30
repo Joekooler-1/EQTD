@@ -1,12 +1,14 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import pandas as pd
+import os
 
 class FeedMergerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Feed File Merger")
         self.psv_file = None
+        self.csv_converted_file = None
         self.feed_files = []
 
         # Create interface components
@@ -37,15 +39,25 @@ class FeedMergerApp:
         self.psv_file = filedialog.askopenfilename(filetypes=[("PSV files", "*.psv")])
         if self.psv_file:
             try:
-                # Try loading with UTF-8 first, if it fails, fallback to latin1
-                self.psv_data = pd.read_csv(self.psv_file, delimiter='|', encoding='utf-8')
-            except UnicodeDecodeError:
-                self.psv_data = pd.read_csv(self.psv_file, delimiter='|', encoding='latin1')
-            
-            # Remove duplicates in the Client_ID column
-            self.psv_data = self.psv_data.drop_duplicates(subset=['Client_ID'])
-            messagebox.showinfo("File Selected", f"Selected .psv file: {self.psv_file}")
-            self.update_process_button_state()
+                # Load the .psv file with encoding handling
+                try:
+                    psv_data = pd.read_csv(self.psv_file, delimiter='|', encoding='utf-8')
+                except UnicodeDecodeError:
+                    psv_data = pd.read_csv(self.psv_file, delimiter='|', encoding='latin1')
+
+                # Remove duplicates in the Client_ID column
+                psv_data = psv_data.drop_duplicates(subset=['Client_ID'])
+
+                # Convert .psv to .csv by saving it
+                csv_path = os.path.splitext(self.psv_file)[0] + "_converted.csv"
+                psv_data.to_csv(csv_path, index=False)
+                self.csv_converted_file = csv_path
+
+                messagebox.showinfo("Conversion Complete", f".psv file converted to CSV:\n{csv_path}")
+                self.update_process_button_state()
+
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred while converting the file: {e}")
 
     def load_feed_files(self):
         # Open file dialog to select feed files (allowing only 3 files to be selected)
@@ -58,13 +70,16 @@ class FeedMergerApp:
             messagebox.showwarning("Invalid Selection", "Please select exactly 3 feed files.")
 
     def update_process_button_state(self):
-        # Enable merge button if both psv and three feed files are selected
-        if self.psv_file and len(self.feed_files) == 3:
+        # Enable merge button if both the converted CSV and three feed files are selected
+        if self.csv_converted_file and len(self.feed_files) == 3:
             self.process_button.config(state=tk.NORMAL)
 
     def merge_files(self):
         try:
-            # Load each feed file with encoding error handling
+            # Load the converted CSV file
+            psv_data = pd.read_csv(self.csv_converted_file)
+
+            # Load each feed file and merge
             merged_data_frames = []
             for feed_file in self.feed_files:
                 try:
@@ -72,7 +87,7 @@ class FeedMergerApp:
                 except UnicodeDecodeError:
                     feed_data = pd.read_csv(feed_file, encoding='latin1')
                     
-                merged = pd.merge(feed_data, self.psv_data, left_on='Column_B', right_on='Column_I', how='inner')
+                merged = pd.merge(feed_data, psv_data, left_on='Column_B', right_on='Column_I', how='inner')
                 merged_data_frames.append(merged)
 
             # Concatenate merged data
