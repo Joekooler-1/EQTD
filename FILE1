@@ -4,6 +4,20 @@ import pandas as pd
 import os
 import tempfile
 
+try:
+    import chardet  # Optional encoding detection if available
+except ImportError:
+    chardet = None
+
+def detect_encoding(file_path):
+    # Use chardet to detect encoding if available
+    if chardet:
+        with open(file_path, 'rb') as f:
+            result = chardet.detect(f.read())
+            return result['encoding']
+    # Default to UTF-8 if chardet is not available
+    return 'utf-8'
+
 def display_filtered_data():
     # Define the columns we want to keep
     selected_columns = ["Client_ID", "ULTIMATE_PARENT_ID", "Application", 
@@ -18,9 +32,11 @@ def display_filtered_data():
     if not input_file:
         return  # User cancelled the file dialog
 
+    # Detect encoding
+    encoding = detect_encoding(input_file)
     try:
-        # Load the data from the PSV file
-        data = pd.read_csv(input_file, sep='|')
+        # Load the data from the PSV file with detected encoding
+        data = pd.read_csv(input_file, sep='|', encoding=encoding)
 
         # Filter the data for the selected columns
         filtered_data = data[selected_columns]
@@ -33,6 +49,8 @@ def display_filtered_data():
         # Open the Excel file for viewing
         os.startfile(temp_filename, "open")
 
+    except UnicodeDecodeError:
+        messagebox.showerror("Error", "Unable to decode the file. Please check the encoding.")
     except FileNotFoundError:
         messagebox.showerror("Error", "File not found.")
     except KeyError:
