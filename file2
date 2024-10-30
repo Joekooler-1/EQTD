@@ -18,16 +18,16 @@ def merge_feeds(feed_files, cdr_file, output_folder):
     - None: Saves each merged result as a separate file in the output folder.
     """
     
-    # Read the entire CDR file
-    cdr_data = pd.read_csv(cdr_file, sep='|')
+    # Read the entire CDR file with Latin-1 encoding
+    cdr_data = pd.read_csv(cdr_file, sep='|', encoding='latin1')
     
     # Remove duplicates based on the column at index 0
     cdr_data = cdr_data.drop_duplicates(subset=cdr_data.columns[0])
     
     # Process each feed file individually
     for feed_file in feed_files:
-        # Read each feed file
-        feed_data = pd.read_csv(feed_file)
+        # Read each feed file with Latin-1 encoding
+        feed_data = pd.read_csv(feed_file, encoding='latin1')
         
         # Perform the merge based on specific columns without renaming
         merged_data = feed_data.merge(
@@ -41,8 +41,8 @@ def merge_feeds(feed_files, cdr_file, output_folder):
         feed_filename = os.path.basename(feed_file)
         output_file = os.path.join(output_folder, f"{os.path.splitext(feed_filename)[0]}_merged.csv")
         
-        # Save the merged data to the output file
-        merged_data.to_csv(output_file, index=False)
+        # Save the merged data to the output file with Latin-1 encoding
+        merged_data.to_csv(output_file, index=False, encoding='latin1')
         
         print(f"Merged file saved to {output_file}")
     
