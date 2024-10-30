@@ -79,25 +79,30 @@ class FeedMergerApp:
             # Load the converted CSV file
             psv_data = pd.read_csv(self.csv_converted_file)
 
-            # Use column indices: Feed files' column 1 and psv_data's column 9
+            # Convert the 9th column of psv_data to string for consistent data type
+            psv_data.iloc[:, 9] = psv_data.iloc[:, 9].astype(str)
+
             merged_data_frames = []
             for feed_file in self.feed_files:
                 try:
                     feed_data = pd.read_csv(feed_file, encoding='utf-8')
                 except UnicodeDecodeError:
                     feed_data = pd.read_csv(feed_file, encoding='latin1')
-                    
-                # Merge using column indices (feed's 2nd column and psv's 10th column)
+                
+                # Convert the 2nd column of feed_data to string for consistent data type
+                feed_data.iloc[:, 1] = feed_data.iloc[:, 1].astype(str)
+                
+                # Merge using column indices (feed's 2nd column and psv's 10th column), keeping only matches
                 merged = pd.merge(
-                    feed_data, 
                     psv_data, 
-                    left_on=feed_data.iloc[:, 1],    # Column 1 of feed file (second column)
-                    right_on=psv_data.iloc[:, 9],    # Column 9 of psv_data (tenth column)
+                    feed_data, 
+                    left_on=psv_data.columns[9],   # Column 9 of psv_data (tenth column)
+                    right_on=feed_data.columns[1], # Column 1 of feed file (second column)
                     how='inner'
                 )
                 merged_data_frames.append(merged)
 
-            # Concatenate merged data
+            # Concatenate merged data from all feed files
             self.final_merged_data = pd.concat(merged_data_frames, ignore_index=True)
             messagebox.showinfo("Merge Complete", "Files have been successfully merged.")
             self.save_button.config(state=tk.NORMAL)
