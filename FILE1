@@ -4,24 +4,9 @@ import pandas as pd
 import os
 import tempfile
 
-try:
-    import chardet  # Optional encoding detection if available
-except ImportError:
-    chardet = None
-
-def detect_encoding(file_path):
-    # Use chardet to detect encoding if available
-    if chardet:
-        with open(file_path, 'rb') as f:
-            result = chardet.detect(f.read())
-            return result['encoding']
-    # Default to UTF-8 if chardet is not available
-    return 'utf-8'
-
-def display_filtered_data():
-    # Define the columns we want to keep
-    selected_columns = ["Client_ID", "ULTIMATE_PARENT_ID", "Application", 
-                        "Client_Arrangement_Short_Name", "PARENT_LEI"]
+def display_selected_columns():
+    # Define the indices of the columns to load and display (0-based indexing)
+    selected_indices = [0, 2, 4, 5, 6]  # Adjust these indices based on the columns you want to display
 
     # Open file dialog to select the PSV file
     input_file = filedialog.askopenfilename(
@@ -32,38 +17,36 @@ def display_filtered_data():
     if not input_file:
         return  # User cancelled the file dialog
 
-    # Detect encoding
-    encoding = detect_encoding(input_file)
+    # Try to load the file with UTF-8 encoding, fallback to ISO-8859-1 if it fails
     try:
-        # Load the data from the PSV file with detected encoding
-        data = pd.read_csv(input_file, sep='|', encoding=encoding)
+        # Attempt to read with UTF-8 encoding, loading only the selected columns
+        data = pd.read_csv(input_file, sep='|', encoding='utf-8', usecols=selected_indices)
+    except UnicodeDecodeError:
+        # If UTF-8 fails, fallback to ISO-8859-1 encoding
+        data = pd.read_csv(input_file, sep='|', encoding='ISO-8859-1', usecols=selected_indices)
 
-        # Filter the data for the selected columns
-        filtered_data = data[selected_columns]
-
+    try:
         # Write to a temporary Excel file to open it for viewing
         with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
             temp_filename = tmp.name
-        filtered_data.to_excel(temp_filename, index=False)
+        data.to_excel(temp_filename, index=False)
 
         # Open the Excel file for viewing
         os.startfile(temp_filename, "open")
 
-    except UnicodeDecodeError:
-        messagebox.showerror("Error", "Unable to decode the file. Please check the encoding.")
     except FileNotFoundError:
         messagebox.showerror("Error", "File not found.")
-    except KeyError:
-        messagebox.showerror("Error", "One or more specified columns do not exist in the input file.")
+    except ValueError:
+        messagebox.showerror("Error", "One or more specified column indices do not exist in the input file.")
     except Exception as e:
         messagebox.showerror("Error", f"An unexpected error occurred: {e}")
 
 # Setting up the tkinter app
 root = tk.Tk()
-root.title("PSV Filter Viewer")
+root.title("PSV Column Viewer")
 
-# Button to load and process the file
-load_button = tk.Button(root, text="Load PSV File", command=display_filtered_data)
+# Button to load and display specific columns
+load_button = tk.Button(root, text="Load PSV File", command=display_selected_columns)
 load_button.pack(pady=20)
 
 # Run the tkinter main loop
