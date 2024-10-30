@@ -1,0 +1,110 @@
+import pandas as pd
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import os
+
+def merge_feeds(feed_files, cdr_file, output_folder):
+    """
+    Merges each feed file with a CDR file based on specific column indices, 
+    without renaming columns, and after removing duplicates from the CDR file.
+    Each merged result is saved as a separate file named after the feed file.
+
+    Parameters:
+    - feed_files (list of str): Paths to the feed files to merge.
+    - cdr_file (str): Path to the CDR file (.psv).
+    - output_folder (str): Folder to save each merged feed file.
+
+    Returns:
+    - None: Saves each merged result as a separate file in the output folder.
+    """
+    
+    # Read the entire CDR file
+    cdr_data = pd.read_csv(cdr_file, sep='|')
+    
+    # Remove duplicates based on the column at index 0
+    cdr_data = cdr_data.drop_duplicates(subset=cdr_data.columns[0])
+    
+    # Process each feed file individually
+    for feed_file in feed_files:
+        # Read each feed file
+        feed_data = pd.read_csv(feed_file)
+        
+        # Perform the merge based on specific columns without renaming
+        merged_data = feed_data.merge(
+            cdr_data,
+            left_on=feed_data.columns[1],   # Column at index 1 in feed file
+            right_on=cdr_data.columns[9],    # Column at index 9 in CDR file
+            how='left'                       # Use left join to keep all feed rows
+        )
+        
+        # Generate the output file path with "_merged" suffix in the specified output folder
+        feed_filename = os.path.basename(feed_file)
+        output_file = os.path.join(output_folder, f"{os.path.splitext(feed_filename)[0]}_merged.csv")
+        
+        # Save the merged data to the output file
+        merged_data.to_csv(output_file, index=False)
+        
+        print(f"Merged file saved to {output_file}")
+    
+    messagebox.showinfo("Success", "All merged files have been saved.")
+
+def select_files(entry_widget):
+    files = filedialog.askopenfilenames(filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+    entry_widget.delete(0, tk.END)
+    entry_widget.insert(0, ';'.join(files))
+
+def select_file(entry_widget):
+    file = filedialog.askopenfilename(filetypes=[("PSV files", "*.psv"), ("All files", "*.*")])
+    entry_widget.delete(0, tk.END)
+    entry_widget.insert(0, file)
+
+def select_folder(entry_widget):
+    folder = filedialog.askdirectory()
+    entry_widget.delete(0, tk.END)
+    entry_widget.insert(0, folder)
+
+def run_merge():
+    feed_files = feeds_entry.get().split(';')
+    cdr_file = cdr_entry.get()
+    output_folder = output_entry.get()
+    
+    if not feed_files or not cdr_file or not output_folder:
+        messagebox.showwarning("Input Error", "Please select all necessary files and specify an output folder.")
+        return
+    
+    try:
+        merge_feeds(feed_files, cdr_file, output_folder)
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+# Tkinter GUI setup
+root = tk.Tk()
+root.title("Feed Merger Tool")
+
+# Feed Files Selection
+tk.Label(root, text="Select Feed Files:").grid(row=0, column=0, padx=10, pady=10, sticky='e')
+feeds_entry = tk.Entry(root, width=50)
+feeds_entry.grid(row=0, column=1, padx=10, pady=10)
+feeds_button = tk.Button(root, text="Browse", command=lambda: select_files(feeds_entry))
+feeds_button.grid(row=0, column=2, padx=10, pady=10)
+
+# CDR File Selection
+tk.Label(root, text="Select CDR File:").grid(row=1, column=0, padx=10, pady=10, sticky='e')
+cdr_entry = tk.Entry(root, width=50)
+cdr_entry.grid(row=1, column=1, padx=10, pady=10)
+cdr_button = tk.Button(root, text="Browse", command=lambda: select_file(cdr_entry))
+cdr_button.grid(row=1, column=2, padx=10, pady=10)
+
+# Output Folder Selection
+tk.Label(root, text="Output Folder:").grid(row=2, column=0, padx=10, pady=10, sticky='e')
+output_entry = tk.Entry(root, width=50)
+output_entry.grid(row=2, column=1, padx=10, pady=10)
+output_button = tk.Button(root, text="Browse", command=lambda: select_folder(output_entry))
+output_button.grid(row=2, column=2, padx=10, pady=10)
+
+# Merge Button
+merge_button = tk.Button(root, text="Merge Files", command=run_merge)
+merge_button.grid(row=3, column=0, columnspan=3, pady=20)
+
+# Run the Tkinter event loop
+root.mainloop()
