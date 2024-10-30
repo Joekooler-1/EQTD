@@ -79,7 +79,7 @@ class FeedMergerApp:
             # Load the converted CSV file
             psv_data = pd.read_csv(self.csv_converted_file)
 
-            # Load each feed file and merge
+            # Use column indices: Feed files' column 1 and psv_data's column 9
             merged_data_frames = []
             for feed_file in self.feed_files:
                 try:
@@ -87,7 +87,14 @@ class FeedMergerApp:
                 except UnicodeDecodeError:
                     feed_data = pd.read_csv(feed_file, encoding='latin1')
                     
-                merged = pd.merge(feed_data, psv_data, left_on='Column_B', right_on='Column_I', how='inner')
+                # Merge using column indices (feed's 2nd column and psv's 10th column)
+                merged = pd.merge(
+                    feed_data, 
+                    psv_data, 
+                    left_on=feed_data.iloc[:, 1],    # Column 1 of feed file (second column)
+                    right_on=psv_data.iloc[:, 9],    # Column 9 of psv_data (tenth column)
+                    how='inner'
+                )
                 merged_data_frames.append(merged)
 
             # Concatenate merged data
