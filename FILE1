@@ -36,8 +36,15 @@ class FeedMergerApp:
         # Open file dialog to select the .psv file
         self.psv_file = filedialog.askopenfilename(filetypes=[("PSV files", "*.psv")])
         if self.psv_file:
+            try:
+                # Try loading with UTF-8 first, if it fails, fallback to latin1
+                self.psv_data = pd.read_csv(self.psv_file, delimiter='|', encoding='utf-8')
+            except UnicodeDecodeError:
+                self.psv_data = pd.read_csv(self.psv_file, delimiter='|', encoding='latin1')
+            
+            # Remove duplicates in the Client_ID column
+            self.psv_data = self.psv_data.drop_duplicates(subset=['Client_ID'])
             messagebox.showinfo("File Selected", f"Selected .psv file: {self.psv_file}")
-            # Enable process button if all files are loaded
             self.update_process_button_state()
 
     def load_feed_files(self):
@@ -56,22 +63,20 @@ class FeedMergerApp:
             self.process_button.config(state=tk.NORMAL)
 
     def merge_files(self):
-        # Load and process files
         try:
-            # Load the .psv file
-            psv_data = pd.read_csv(self.psv_file, delimiter='|')
-            psv_data = psv_data.drop_duplicates(subset=['Client_ID'])
-
-            # Load each feed file and merge
+            # Load each feed file with encoding error handling
             merged_data_frames = []
             for feed_file in self.feed_files:
-                feed_data = pd.read_csv(feed_file)
-                merged = pd.merge(feed_data, psv_data, left_on='Column_B', right_on='Column_I', how='inner')
+                try:
+                    feed_data = pd.read_csv(feed_file, encoding='utf-8')
+                except UnicodeDecodeError:
+                    feed_data = pd.read_csv(feed_file, encoding='latin1')
+                    
+                merged = pd.merge(feed_data, self.psv_data, left_on='Column_B', right_on='Column_I', how='inner')
                 merged_data_frames.append(merged)
 
             # Concatenate merged data
             self.final_merged_data = pd.concat(merged_data_frames, ignore_index=True)
-
             messagebox.showinfo("Merge Complete", "Files have been successfully merged.")
             self.save_button.config(state=tk.NORMAL)
 
