@@ -17,9 +17,17 @@ def display_selected_columns():
     if not input_file:
         return  # User cancelled the file dialog
 
-    # Try to load the file with UTF-8 encoding, fallback to ISO-8859-1 if it fails
     try:
-        # Attempt to read with UTF-8 encoding, loading only the selected columns
+        # Load only the header to check the number of columns
+        header = pd.read_csv(input_file, sep='|', nrows=0)
+        num_columns = len(header.columns)
+
+        # Check if all specified indices are within the range of available columns
+        if any(index >= num_columns or index < 0 for index in selected_indices):
+            messagebox.showerror("Error", "One or more specified column indices do not exist in the input file.")
+            return
+
+        # Try to load the file with UTF-8 encoding, using only the selected columns
         data = pd.read_csv(input_file, sep='|', encoding='utf-8', usecols=selected_indices)
     except UnicodeDecodeError:
         # If UTF-8 fails, fallback to ISO-8859-1 encoding
@@ -36,8 +44,6 @@ def display_selected_columns():
 
     except FileNotFoundError:
         messagebox.showerror("Error", "File not found.")
-    except ValueError:
-        messagebox.showerror("Error", "One or more specified column indices do not exist in the input file.")
     except Exception as e:
         messagebox.showerror("Error", f"An unexpected error occurred: {e}")
 
