@@ -1,0 +1,52 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import pandas as pd
+import os
+import tempfile
+
+def display_filtered_data():
+    # Define the columns we want to keep
+    selected_columns = ["Client_ID", "ULTIMATE_PARENT_ID", "Application", 
+                        "Client_Arrangement_Short_Name", "PARENT_LEI"]
+
+    # Open file dialog to select the PSV file
+    input_file = filedialog.askopenfilename(
+        title="Select a PSV File", 
+        filetypes=[("Pipe-Separated Values", "*.psv"), ("All Files", "*.*")]
+    )
+    
+    if not input_file:
+        return  # User cancelled the file dialog
+
+    try:
+        # Load the data from the PSV file
+        data = pd.read_csv(input_file, sep='|')
+
+        # Filter the data for the selected columns
+        filtered_data = data[selected_columns]
+
+        # Write to a temporary Excel file to open it for viewing
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            temp_filename = tmp.name
+        filtered_data.to_excel(temp_filename, index=False)
+
+        # Open the Excel file for viewing
+        os.startfile(temp_filename, "open")
+
+    except FileNotFoundError:
+        messagebox.showerror("Error", "File not found.")
+    except KeyError:
+        messagebox.showerror("Error", "One or more specified columns do not exist in the input file.")
+    except Exception as e:
+        messagebox.showerror("Error", f"An unexpected error occurred: {e}")
+
+# Setting up the tkinter app
+root = tk.Tk()
+root.title("PSV Filter Viewer")
+
+# Button to load and process the file
+load_button = tk.Button(root, text="Load PSV File", command=display_filtered_data)
+load_button.pack(pady=20)
+
+# Run the tkinter main loop
+root.mainloop()
