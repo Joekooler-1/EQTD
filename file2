@@ -24,10 +24,16 @@ def merge_feeds(feed_files, cdr_file, output_folder):
     # Remove duplicates based on the column at index 0
     cdr_data = cdr_data.drop_duplicates(subset=cdr_data.columns[0])
     
+    # Convert the column at index 9 to string for merging
+    cdr_data[cdr_data.columns[9]] = cdr_data[cdr_data.columns[9]].astype(str)
+    
     # Process each feed file individually
     for feed_file in feed_files:
         # Read each feed file with Latin-1 encoding
         feed_data = pd.read_csv(feed_file, encoding='latin1')
+        
+        # Convert the column at index 1 to string for merging
+        feed_data[feed_data.columns[1]] = feed_data[feed_data.columns[1]].astype(str)
         
         # Perform the merge based on specific columns without renaming
         merged_data = feed_data.merge(
